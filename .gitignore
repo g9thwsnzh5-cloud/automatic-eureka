@@ -33,3 +33,4 @@ hardware/kicad/build/fab/*.gbrjob
 hardware/kicad/build/v_*.pdf
 hardware/kicad/build/v_*.png
 hardware/kicad/build/*.bak
+hardware/kicad/build/logs/
