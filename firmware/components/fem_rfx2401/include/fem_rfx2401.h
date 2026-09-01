@@ -42,7 +42,8 @@ esp_err_t fem_rfx2401_auto(void);
  * Limit the ESP32 output so the FEM input stays linear.  The RFX2401C input
  * P1dB is about +5 dBm; with the 0 ohm pad on the board keep the ESP32 at
  * <= +8 dBm (11n) so the PA output lands near +18..+20 dBm.
- * power_qdbm is in units of 0.25 dBm (ESP-IDF convention), e.g. 32 = 8 dBm.
+ * power_qdbm is in 0.25 dBm units but the HW quantizes it: 8 -> ~2 dBm,
+ * 28/32 -> ~7 dBm, 34 -> 8.5 dBm. The real value is logged via get_max_tx_power().
  */
 esp_err_t fem_rfx2401_set_tx_power(int8_t power_qdbm);
 
