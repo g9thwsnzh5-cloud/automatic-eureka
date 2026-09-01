@@ -1,5 +1,6 @@
 (sym_lib_table
   (version 7)
   (lib (name "esp32_fem")(type "KiCad")(uri "${KIPRJMOD}/lib/esp32_fem.kicad_sym")(options "")(descr "rev A symbols"))
+  (lib (name "esp32_pico")(type "KiCad")(uri "${KIPRJMOD}/lib/esp32_pico.kicad_sym")(options "")(descr "PICO-D4 symbol"))
   (lib (name "esp32_1w")(type "KiCad")(uri "${KIPRJMOD}/lib/esp32_1w.kicad_sym")(options "")(descr "1W variant symbols"))
 )
