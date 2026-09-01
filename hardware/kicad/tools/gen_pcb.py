@@ -267,11 +267,13 @@ def main():
                 board.Add(_t)
 
     # GND pours on all layers ---------------------------------------------
+    _in2 = getattr(_d, "IN2_NET", "GND")   # pico: In2 is a +3V3 plane (SIG/GND/PWR/SIG stack)
     for layer, clr in [(pcbnew.F_Cu, 0.5), (pcbnew.In1_Cu, 0.3), (pcbnew.In2_Cu, 0.3), (pcbnew.B_Cu, 0.5)]:
+        _znet = _in2 if layer == pcbnew.In2_Cu else "GND"
         z = pcbnew.ZONE(board)
         z.SetLayer(layer)
-        z.SetNet(netmap["GND"])
-        z.SetZoneName("GND_" + pcbnew.BOARD.GetStandardLayerName(layer))
+        z.SetNet(netmap[_znet])
+        z.SetZoneName(_znet + "_" + pcbnew.BOARD.GetStandardLayerName(layer))
         z.SetLocalClearance(FromMM(clr))
         z.SetMinThickness(FromMM(0.2))
         z.SetPadConnection(pcbnew.ZONE_CONNECTION_THERMAL)
