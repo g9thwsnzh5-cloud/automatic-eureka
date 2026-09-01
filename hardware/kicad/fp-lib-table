@@ -1,3 +1,4 @@
 (fp_lib_table
   (version 7)
+  (lib (name "esp32_proj")(type "KiCad")(uri "${KIPRJMOD}/lib/esp32_proj.pretty")(options "")(descr "Project footprints (QPF4219, RFSW8009)"))
 )

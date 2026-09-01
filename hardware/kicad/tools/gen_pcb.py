@@ -107,7 +107,8 @@ def main():
     fps = {}
     for p in PARTS:
         lib, name = p["fp"].split(":")
-        fp = pcbnew.FootprintLoad(os.path.join(FPLIB, lib + ".pretty"), name)
+        lib_dir = os.path.join(KICAD_DIR, "lib", lib + ".pretty") if lib == "esp32_proj" else os.path.join(FPLIB, lib + ".pretty")
+        fp = pcbnew.FootprintLoad(lib_dir, name)
         if fp is None:
             raise SystemExit("footprint not found: " + p["fp"])
         fp.SetFPID(pcbnew.LIB_ID(lib, name))

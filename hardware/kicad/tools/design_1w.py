@@ -58,15 +58,16 @@ RF_1W = [
          pins={"1": "RF_ESP", "2": "GND"}),
     dict(ref="C20", sym="Device:C", value="100pF", fp=C0402, lcsc="C1546",
          pins={"1": "RF_ESP", "2": "SW_COM"}),
-    # RFSW8009 SP2T: 1=RFC, 2=GND, 3=RF1(TX), 4=V2, 5=RF2(RX), 6=V1  (сверить!)
-    dict(ref="U10", sym="esp32_1w:RFSW8009", value="RFSW8009", fp=SC70_6, lcsc="",
-         pins={"1": "SW_COM", "3": "TX_PATH", "5": "RX_PATH", "6": "TX_EN", "4": "RX_EN", "2": "GND"}),
+    # RFSW8009 SP2T (даташит Qorvo Rev E): 1=RF1, 2=GND, 3=RF2, 4=VCONT2, 5=RFC, 6=VCONT1
+    # Таблица: RF1-RFC при VCONT1=H (TX), RF2-RFC при VCONT2=H (RX)
+    dict(ref="U10", sym="esp32_1w:RFSW8009", value="RFSW8009", fp="esp32_proj:RFSW8009_DFN6_1.86x1.5", lcsc="",
+         pins={"5": "SW_COM", "1": "TX_PATH", "3": "RX_PATH", "6": "TX_EN", "4": "RX_EN", "2": "GND"}),
     dict(ref="C21", sym="Device:C", value="100pF", fp=C0402, lcsc="C1546",
          pins={"1": "TX_PATH", "2": "PA_IN"}),
     dict(ref="C22", sym="Device:C", value="100pF", fp=C0402, lcsc="C1546",
          pins={"1": "RX_PATH", "2": "LNA_OUT"}),
     # QPF4219 QFN-24 (распиновка из GPL-схемы Reach Out, лист 2, U9)
-    dict(ref="U9", sym="esp32_1w:QPF4219", value="QPF4219", fp=QFN24, lcsc="C471154",
+    dict(ref="U9", sym="esp32_1w:QPF4219", value="QPF4219", fp="esp32_proj:QPF4219_QFN24_3x5", lcsc="C471154",
          pins={"2": "PA_IN", "17": "PA_ANT", "15": "RX_OUT", "13": "LNA_IN", "12": "LNA_OUT",
                "4": "TX_EN", "19": "TX_EN", "16": "RX_EN",
                "10": "V_PA", "22": "V_PA", "23": "V_PA", "24": "V_PA",
