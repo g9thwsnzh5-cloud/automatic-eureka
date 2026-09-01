@@ -12,3 +12,5 @@ hardware/kicad/build/pcb_top.pdf
 firmware/build/
 firmware/sdkconfig
 firmware/sdkconfig.old
+hardware/kicad/build/*.log
+hardware/kicad/build/run_fr*.sh
