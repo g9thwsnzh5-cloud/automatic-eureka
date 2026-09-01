@@ -256,6 +256,15 @@ def main():
         # pico: freerouting routes RF; add a couple of GND fence vias near the FEM
         for _fx, _fy in [(24.5, 8.5), (24.5, 12.0)]:
             via(_fx, _fy, "GND")
+        for _pr in getattr(_d, "PREROUTE", []):
+            _pts = [pad_pos(*q) if isinstance(q, tuple) and isinstance(q[0], str) else VECTOR2I_MM(*q)
+                    for q in _pr["points"]]
+            _lay = getattr(pcbnew, _pr.get("layer", "F_Cu"))
+            for _a, _b in zip(_pts, _pts[1:]):
+                _t = pcbnew.PCB_TRACK(board)
+                _t.SetStart(_a); _t.SetEnd(_b); _t.SetWidth(FromMM(_pr.get("w", 0.25)))
+                _t.SetLayer(_lay); _t.SetNet(netmap[_pr["net"]]); _t.SetLocked(True)
+                board.Add(_t)
 
     # GND pours on all layers ---------------------------------------------
     for layer, clr in [(pcbnew.F_Cu, 0.5), (pcbnew.In1_Cu, 0.3), (pcbnew.In2_Cu, 0.3), (pcbnew.B_Cu, 0.5)]:
