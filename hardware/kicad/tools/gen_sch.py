@@ -11,7 +11,10 @@ import sys
 import uuid
 
 sys.path.insert(0, os.path.dirname(__file__))
-from design import PARTS, PWR_FLAG_NETS, PROJECT, TITLE  # noqa: E402
+import os as _os, importlib as _il  # noqa: E402
+_DM = _os.environ.get("DESIGN", "design")
+_d = _il.import_module(_DM)
+PARTS, PWR_FLAG_NETS, PROJECT, TITLE = [getattr(_d, n) for n in "PARTS, PWR_FLAG_NETS, PROJECT, TITLE".split(", ")]  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 KICAD_DIR = os.path.dirname(HERE)
@@ -41,7 +44,7 @@ _libcache = {}
 
 def lib_text(lib):
     if lib not in _libcache:
-        path = LOCAL_LIB if lib == "esp32_fem" else os.path.join(SYSLIB, lib + ".kicad_sym")
+        path = os.path.join(KICAD_DIR, "lib", lib + ".kicad_sym") if lib.startswith("esp32_") else os.path.join(SYSLIB, lib + ".kicad_sym")
         _libcache[lib] = open(path).read()
     return _libcache[lib]
 
@@ -160,8 +163,14 @@ def main():
         syms.append("\n".join(s))
         return pins
 
+    auto_i = [0]
+    def auto_xy():
+        col = auto_i[0] % 12
+        row = auto_i[0] // 12
+        auto_i[0] += 1
+        return (20 + col * 30, 250 + row * 35)
     for p in PARTS:
-        X, Y = LAYOUT[p["ref"]]
+        X, Y = LAYOUT.get(p["ref"], None) or auto_xy()
         X, Y = snap(X), snap(Y)
         pins = place_symbol(p["sym"], p["ref"], p["value"], p["fp"], X, Y,
                             dnp=p.get("dnp", False), jlc=p.get("jlc", True), lcsc=p.get("lcsc", ""))

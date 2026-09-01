@@ -1,0 +1,9 @@
+Designator,Value,Footprint
+SW1,RESET,SW_PUSH_6mm
+SW2,BOOT,SW_PUSH_6mm
+J3,GPIO_L,PinHeader_1x13_P2.54mm_Vertical
+J4,GPIO_R,PinHeader_1x13_P2.54mm_Vertical
+J5,SMA edge,SMA_Amphenol_132289_EdgeMount
+TP1,TXEN,TestPoint_Pad_1.0x1.0mm
+TP2,RXEN,TestPoint_Pad_1.0x1.0mm
+TP3,V_PA,TestPoint_Pad_1.0x1.0mm

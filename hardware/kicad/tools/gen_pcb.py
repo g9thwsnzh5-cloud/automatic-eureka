@@ -18,7 +18,10 @@ import pcbnew
 from pcbnew import FromMM, VECTOR2I, VECTOR2I_MM
 
 sys.path.insert(0, os.path.dirname(__file__))
-from design import PARTS, RF_NETS, PROJECT  # noqa: E402
+import os as _os, importlib as _il  # noqa: E402
+_DM = _os.environ.get("DESIGN", "design")
+_d = _il.import_module(_DM)
+PARTS, RF_NETS, PROJECT = [getattr(_d, n) for n in "PARTS, RF_NETS, PROJECT".split(", ")]  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 KICAD_DIR = os.path.dirname(HERE)
