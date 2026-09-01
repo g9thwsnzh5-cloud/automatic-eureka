@@ -1,0 +1,8 @@
+Designator,Value,Footprint,Note
+SW1,RESET,SW_PUSH_6mm,not assembled by JLCPCB
+SW2,BOOT,SW_PUSH_6mm,not assembled by JLCPCB
+J3,GPIO_L,PinHeader_1x13_P2.54mm_Vertical,not assembled by JLCPCB
+J4,GPIO_R,PinHeader_1x13_P2.54mm_Vertical,not assembled by JLCPCB
+J5,SMA edge,SMA_Amphenol_132289_EdgeMount,not assembled by JLCPCB
+TP1,TXEN,TestPoint_Pad_1.0x1.0mm,not assembled by JLCPCB
+TP2,RXEN,TestPoint_Pad_1.0x1.0mm,not assembled by JLCPCB

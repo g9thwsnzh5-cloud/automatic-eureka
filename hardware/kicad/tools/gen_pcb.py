@@ -55,7 +55,7 @@ PLACE = {
     "R11": (38.0, 14.2, None), "R12": (42.5, 14.2, None), "TP1": (36.0, 17.0, 0),
     "TP2": (43.5, 17.0, 0), "R13": (46.5, 14.0, 0), "D3": (49.6, 14.0, 180),
 }
-HOLES = [(4.0, 4.0), (56.0, 4.0), (4.0, 48.0), (55.5, 48.5)]
+HOLES = [(4.0, 4.0), (52.0, 4.0), (4.0, 48.0), (52.0, 48.5)]
 
 
 def read_netlist(path):
@@ -133,6 +133,10 @@ def main():
         if not p.get("jlc", True):
             attrs |= pcbnew.FP_EXCLUDE_FROM_POS_FILES
         fp.SetAttributes(attrs)
+        r = fp.Reference()
+        r.SetTextSize(VECTOR2I(FromMM(0.8), FromMM(0.8)))
+        r.SetTextThickness(FromMM(0.12))
+        fp.Value().SetVisible(False)
         fp.SetProperty("LCSC", p.get("lcsc", ""))
         board.Add(fp)
         fps[p["ref"]] = fp
