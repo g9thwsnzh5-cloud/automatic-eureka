@@ -93,7 +93,7 @@ def do_import():
     # the session contains every wire and via (pre-routed RF included): start clean
     for t in list(board.GetTracks()):
         board.Remove(t)
-    nets = board.GetNetsByName()
+    nets = {n: board.FindNet(n) for n in {w[3] for w in wires} | {v[2] for v in vias}}
     layer_ids = {board.GetLayerName(l): l for l in range(pcbnew.PCB_LAYER_ID_COUNT) if board.IsLayerEnabled(l)}
     n_t = n_v = 0
     for layer, width, pts, net in wires:

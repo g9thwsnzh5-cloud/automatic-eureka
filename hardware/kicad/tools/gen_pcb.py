@@ -48,7 +48,7 @@ PLACE = {
     "J2": (27.3, RF_IN_Y, 180), "C8": (30.5, RF_IN_Y, 0), "R9": (32.6, 11.7, None),
     "R8": (34.4, RF_IN_Y, 0), "R10": (36.4, 11.7, None), "U4": (40.0, 9.5, 0),
     "C12": (44.0, RF_OUT_Y, 0), "C13": (46.0, 11.2, None), "L1": (47.6, RF_OUT_Y, 0),
-    "C14": (49.7, 11.2, None), "J5": (62.85, RF_OUT_Y, 0),
+    "C14": (49.7, 11.2, None), "J5": (60.8, RF_OUT_Y, 0),
     # FEM supply (above U4) and control (below U4)
     "C9": (38.2, 6.4, "pin2top"), "C10": (41.3, 6.4, "pin2top"), "FB1": (39.75, 4.3, None),
     "C11": (43.6, 4.3, 0),
@@ -78,11 +78,11 @@ def main():
     ds.m_TrackMinWidth = FromMM(0.127)
     ds.m_ViasMinSize = FromMM(0.5)
     ds.m_MinThroughDrill = FromMM(0.2)   # WROOM-32U paddle vias are 0.2 mm (JLC 4-layer ok)
-    ds.m_CopperEdgeClearance = FromMM(0.3)
+    ds.m_CopperEdgeClearance = FromMM(0.2)
     ds.m_SolderMaskMinWidth = 0
     try:
         nc = ds.m_NetSettings.m_DefaultNetClass
-        nc.SetClearance(FromMM(0.2))
+        nc.SetClearance(FromMM(0.15))
         nc.SetTrackWidth(FromMM(0.25))
         nc.SetViaDiameter(FromMM(0.6))
         nc.SetViaDrill(FromMM(0.3))
@@ -176,7 +176,7 @@ def main():
 
     text("ESP32 Wi-Fi FEM  rev A", 51.0, 24.0, size=1.2)
     text("RF IN", 27.3, 12.9, size=0.8)
-    text("ANT", 60.5, 2.5, size=0.8)
+    text("ANT", 58.0, 2.5, size=0.8)
     text("USB", 32.0, 40.5, size=0.8)
     text("RST", 10.75, 40.5, size=0.8)
     text("BOOT", 19.75, 40.5, size=0.8)
@@ -201,11 +201,11 @@ def main():
         v.SetNet(netmap[net])
         board.Add(v)
 
-    def line(points, net):
+    def line(points, net, w=RF_W):
         pts = [pad_pos(*p) if isinstance(p, tuple) and isinstance(p[0], str) else VECTOR2I_MM(*p)
                for p in points]
         for a, b in zip(pts, pts[1:]):
-            track(a, b, net)
+            track(a, b, net, w=w)
 
     # input: U.FL -> C8 -> R8 -> U4.4, with shunt stubs to R9/R10
     line([("J2", "1"), ("C8", "1")], "RF_IN")
@@ -258,8 +258,11 @@ def main():
             z.AppendCorner(VECTOR2I_MM(x, y), -1)
         board.Add(z)
 
+    # CC1 is boxed in between the USB pads: route it by hand (freerouting gave up on it)
+    line([("J1", "A5"), (31.75, 42.5), (28.6, 42.5), (27.99, 41.9), ("R1", "1")], "CC1", w=0.2)
+
     # RF pads: solid connection to the pour (GND side of shunt parts and QFN paddle)
-    for ref in ("U4", "J2", "J5", "C13", "C14", "R9", "R10", "C9", "C10"):
+    for ref in ("U4", "J2", "J5", "C13", "C14", "R9", "R10", "C9", "C10", "U1", "J1"):
         for pd in fps[ref].Pads():
             if pd.GetNetname() == "GND":
                 pd.SetZoneConnection(pcbnew.ZONE_CONNECTION_FULL)
