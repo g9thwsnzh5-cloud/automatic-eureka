@@ -72,3 +72,13 @@ PWR_FLAG_NETS = ["GND", "VBUS", "+5V", "+3V3_RF", "VDD_SDIO"]
 RF_NETS = ["RF_PICO", "RF_A", "RF_B", "RF_C", "RF_D", "RF_OUT"]
 PROJECT = "esp32_fem_pico"
 TITLE = "ESP32-PICO Wi-Fi FEM board rev B (no pigtail)"
+
+# Размещение новых деталей (остальные refs берут координаты rev A из gen_pcb.PLACE)
+PLACE_EXTRA = {
+    "C40": (6.0, 30.0, None), "C41": (10.0, 30.0, None), "C42": (14.0, 30.0, None),
+    "C43": (18.0, 30.0, None), "C44": (22.0, 30.0, None), "C45": (26.0, 30.0, None),
+    "R40": (6.0, 34.0, None), "R41": (10.0, 34.0, None), "R42": (14.0, 34.0, None),
+    "R43": (18.0, 34.0, None),
+}
+# ВЧ-тракт разводит freerouting (RF идёт с вывода чипа, не хардкодим)
+HAND_RF = False

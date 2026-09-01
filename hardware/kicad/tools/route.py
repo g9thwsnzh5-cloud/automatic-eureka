@@ -16,10 +16,21 @@ import pcbnew
 HERE = os.path.dirname(os.path.abspath(__file__))
 KICAD_DIR = os.path.dirname(HERE)
 BUILD = os.path.join(KICAD_DIR, "build")
-PCB = os.path.join(KICAD_DIR, "esp32_fem.kicad_pcb")
+PCB = os.path.join(KICAD_DIR, "esp32_fem.kicad_pcb")  # overridden below after DESIGN import
 
 sys.path.insert(0, HERE)
-from design import PARTS, RF_NETS  # noqa: E402
+import importlib as _il
+_DM = os.environ.get("DESIGN", "design")
+_d = _il.import_module(_DM)
+PARTS, RF_NETS = _d.PARTS, _d.RF_NETS
+_PROJECT = getattr(_d, "PROJECT", "esp32_fem")
+_HAND_RF = getattr(_d, "HAND_RF", True)
+
+
+PCB = os.path.join(KICAD_DIR, _PROJECT + ".kicad_pcb")
+_NET = _PROJECT + ".net"
+_DSN = _PROJECT + ".dsn"
+_SES = _PROJECT + ".ses"
 
 
 def fill(board):
@@ -68,20 +79,22 @@ def do_dsn():
     re-creates the pours and route.py import fills them."""
     import re as _re
     board = pcbnew.LoadBoard(PCB)
-    raw = os.path.join(BUILD, "esp32_fem_raw.dsn")
+    raw = os.path.join(BUILD, _PROJECT + "_raw.dsn")
     pcbnew.ExportSpecctraDSN(board, raw)
     d = open(raw).read()
-    m = _re.search(r'\(class kicad_default "" (.*?)\n      \(circuit', d, _re.S)
-    body = m.group(1)
-    for n in RF_NETS:
-        body = _re.sub(r"\b%s\b" % n, "", body)
-    d = d[:m.start(1)] + body + d[m.end(1):]
+    if _HAND_RF:
+        m = _re.search(r'\(class kicad_default "" (.*?)\n      \(circuit', d, _re.S)
+        body = m.group(1)
+        for n in RF_NETS:
+            body = _re.sub(r"\b%s\b" % n, "", body)
+        d = d[:m.start(1)] + body + d[m.end(1):]
     rfclass = ("    (class RF \"\" %s\n      (circuit\n        (use_via Via[0-3]_600:300_um)\n      )\n"
                "      (rule\n        (width 380)\n        (clearance 200.1)\n      )\n    )\n" % " ".join(RF_NETS))
-    i = d.rfind("  )\n  (wiring")
-    d = d[:i] + rfclass + d[i:]
+    if _HAND_RF:
+        i = d.rfind("  )\n  (wiring")
+        d = d[:i] + rfclass + d[i:]
     d = "\n".join(l for l in d.split("\n") if "plane GND (polygon F.Cu" not in l and "plane GND (polygon B.Cu" not in l)
-    out = os.path.join(BUILD, "esp32_fem.dsn")
+    out = os.path.join(BUILD, _DSN)
     open(out, "w").write(d)
     print("wrote", out)
     print("now run: java -jar freerouting-1.9.0.jar -de build/esp32_fem.dsn -do build/esp32_fem.ses -mp 30 -inc RF")
@@ -89,7 +102,7 @@ def do_dsn():
 
 def do_import():
     board = pcbnew.LoadBoard(PCB)
-    wires, vias = parse_ses(os.path.join(BUILD, "esp32_fem.ses"))
+    wires, vias = parse_ses(os.path.join(BUILD, _SES))
     # the session contains every wire and via (pre-routed RF included): start clean
     for t in list(board.GetTracks()):
         board.Remove(t)

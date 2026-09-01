@@ -60,6 +60,9 @@ PLACE = {
 }
 HOLES = [(4.0, 4.0), (52.0, 4.0), (4.0, 48.0), (52.0, 48.5)]
 
+PLACE = {**PLACE, **getattr(_d, "PLACE_EXTRA", {})}
+HAND_RF = getattr(_d, "HAND_RF", True)
+
 
 def read_netlist(path):
     s = open(path).read()
@@ -215,38 +218,44 @@ def main():
         for a, b in zip(pts, pts[1:]):
             track(a, b, net, w=w)
 
-    # input: U.FL -> C8 -> R8 -> U4.4, with shunt stubs to R9/R10
-    line([("J2", "1"), ("C8", "1")], "RF_IN")
-    line([("C8", "2"), ("R8", "1")], "RF_A")
-    line([("R9", "1"), (32.6, RF_IN_Y)], "RF_A")
-    line([("R8", "2"), (37.6, RF_IN_Y)], "RF_B")
-    track(VECTOR2I_MM(37.6, RF_IN_Y), pad_pos("U4", "4"), "RF_B", w=0.2)   # neck into the QFN pad
-    line([("R10", "1"), (36.4, RF_IN_Y)], "RF_B")
-    # output: U4.10 -> C12 -> L1 (pi filter) -> SMA
-    track(pad_pos("U4", "10"), VECTOR2I_MM(42.4, RF_OUT_Y), "RF_C", w=0.2)  # neck out of the QFN pad
-    line([(42.4, RF_OUT_Y), ("C12", "1")], "RF_C")
-    line([("C12", "2"), ("L1", "1")], "RF_D")
-    line([("C13", "1"), (46.0, RF_OUT_Y)], "RF_D")
-    line([("L1", "2"), ("J5", "1")], "RF_OUT")
-    line([("C14", "1"), (49.7, RF_OUT_Y)], "RF_OUT")
+    if HAND_RF:
+        # input: U.FL -> C8 -> R8 -> U4.4, with shunt stubs to R9/R10
+        line([("J2", "1"), ("C8", "1")], "RF_IN")
+        line([("C8", "2"), ("R8", "1")], "RF_A")
+        line([("R9", "1"), (32.6, RF_IN_Y)], "RF_A")
+        line([("R8", "2"), (37.6, RF_IN_Y)], "RF_B")
+        track(VECTOR2I_MM(37.6, RF_IN_Y), pad_pos("U4", "4"), "RF_B", w=0.2)   # neck into the QFN pad
+        line([("R10", "1"), (36.4, RF_IN_Y)], "RF_B")
+        # output: U4.10 -> C12 -> L1 (pi filter) -> SMA
+        track(pad_pos("U4", "10"), VECTOR2I_MM(42.4, RF_OUT_Y), "RF_C", w=0.2)  # neck out of the QFN pad
+        line([(42.4, RF_OUT_Y), ("C12", "1")], "RF_C")
+        line([("C12", "2"), ("L1", "1")], "RF_D")
+        line([("C13", "1"), (46.0, RF_OUT_Y)], "RF_D")
+        line([("L1", "2"), ("J5", "1")], "RF_OUT")
+        line([("C14", "1"), (49.7, RF_OUT_Y)], "RF_OUT")
 
-    # GND vias for the RF shunt parts and the FEM ground paddle
-    for ref in ("R9", "R10", "C13", "C14"):
-        pp = pad_pos(ref, "2")
-        via(pp.x / 1e6, pp.y / 1e6 + 0.75, "GND")
-        track(pp, VECTOR2I_MM(pp.x / 1e6, pp.y / 1e6 + 0.75), "GND", w=0.3)
-    for ref in ("C9", "C10"):
-        pp = pad_pos(ref, "2")
-        via(pp.x / 1e6, pp.y / 1e6 - 0.8, "GND")
-        track(pp, VECTOR2I_MM(pp.x / 1e6, pp.y / 1e6 - 0.8), "GND", w=0.3)
-    # stitching vias along the RF lines (ground fence)
-    fence = []
-    fence += [(x, 7.9) for x in range(26, 37, 2)] + [(x, 7.9) for x in range(47, 62, 2)]
-    fence += [(x, 15.5) for x in range(26, 53, 2) if abs(x - 36) > 1.4 and abs(x - 43.5) > 1.4]
-    fence += [(x, 12.5) for x in range(53, 62, 2)]
-    fence += [(24.5, 8.5), (24.5, 12.0), (34.5, 6.0), (46.5, 5.5), (48.5, 3.5)]
-    for x, y in fence:
-        via(x, y, "GND")
+        # GND vias for the RF shunt parts and the FEM ground paddle
+        for ref in ("R9", "R10", "C13", "C14"):
+            pp = pad_pos(ref, "2")
+            via(pp.x / 1e6, pp.y / 1e6 + 0.75, "GND")
+            track(pp, VECTOR2I_MM(pp.x / 1e6, pp.y / 1e6 + 0.75), "GND", w=0.3)
+        for ref in ("C9", "C10"):
+            pp = pad_pos(ref, "2")
+            via(pp.x / 1e6, pp.y / 1e6 - 0.8, "GND")
+            track(pp, VECTOR2I_MM(pp.x / 1e6, pp.y / 1e6 - 0.8), "GND", w=0.3)
+        # stitching vias along the RF lines (ground fence)
+        fence = []
+        fence += [(x, 7.9) for x in range(26, 37, 2)] + [(x, 7.9) for x in range(47, 62, 2)]
+        fence += [(x, 15.5) for x in range(26, 53, 2) if abs(x - 36) > 1.4 and abs(x - 43.5) > 1.4]
+        fence += [(x, 12.5) for x in range(53, 62, 2)]
+        fence += [(24.5, 8.5), (24.5, 12.0), (34.5, 6.0), (46.5, 5.5), (48.5, 3.5)]
+        for x, y in fence:
+            via(x, y, "GND")
+
+    else:
+        # pico: freerouting routes RF; add a couple of GND fence vias near the FEM
+        for _fx, _fy in [(24.5, 8.5), (24.5, 12.0)]:
+            via(_fx, _fy, "GND")
 
     # GND pours on all layers ---------------------------------------------
     for layer, clr in [(pcbnew.F_Cu, 0.5), (pcbnew.In1_Cu, 0.3), (pcbnew.In2_Cu, 0.3), (pcbnew.B_Cu, 0.5)]:
@@ -271,6 +280,8 @@ def main():
 
     # RF pads: solid connection to the pour (GND side of shunt parts and QFN paddle)
     for ref in ("U4", "J2", "J5", "C13", "C14", "R9", "R10", "C9", "C10", "U1", "J1"):
+        if ref not in fps:
+            continue
         for pd in fps[ref].Pads():
             if pd.GetNetname() == "GND":
                 pd.SetZoneConnection(pcbnew.ZONE_CONNECTION_FULL)
