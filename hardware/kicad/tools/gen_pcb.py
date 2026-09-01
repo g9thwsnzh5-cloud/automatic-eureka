@@ -35,27 +35,27 @@ PLACE = {
     # ESP32 module and its support parts (left half)
     "U1": (15.0, 21.0, 0), "J3": (2.54, 10.0, 0),
     "C5": (9.0, 9.0, 0), "C6": (12.5, 9.0, 0), "R6": (9.0, 6.4, 0), "C7": (12.5, 6.4, 0),
-    "SW1": (7.5, 42.0, 0), "SW2": (16.5, 42.0, 0),
+    "SW1": (9.5, 42.0, 0), "SW2": (19.1, 42.0, 0),
     # USB, serial bridge, auto reset (bottom middle)
-    "J1": (32.0, 47.8, 0), "R1": (27.0, 41.0, 0), "R2": (37.0, 41.0, 0),
+    "J1": (33.0, 47.8, 0), "R1": (27.5, 41.0, 0), "R2": (30.5, 41.0, 0),
     "U3": (33.5, 33.0, 0), "C4": (28.5, 30.0, 0),
-    "R4": (38.6, 29.05, 0), "Q1": (41.0, 30.0, 0), "R5": (38.6, 34.05, 0), "Q2": (41.0, 35.0, 0),
+    "R4": (38.0, 29.05, 0), "Q1": (41.0, 30.0, 0), "R5": (38.0, 34.05, 0), "Q2": (41.0, 35.0, 0),
     # power (bottom right)
     "D1": (41.5, 41.8, 0), "U2": (48.0, 37.0, 0), "C1": (47.0, 41.8, 0),
     "C2": (47.0, 32.5, 0), "C3": (50.5, 32.5, 0), "R3": (54.5, 35.0, None), "D2": (54.5, 40.0, 90),
     "J4": (61.0, 18.0, 0),
     # RF chain along the top edge
-    "J2": (27.0, RF_IN_Y, 0), "C8": (30.5, RF_IN_Y, 0), "R9": (32.6, 11.7, None),
+    "J2": (27.0, RF_IN_Y, 180), "C8": (30.5, RF_IN_Y, 0), "R9": (32.6, 11.7, None),
     "R8": (34.4, RF_IN_Y, 0), "R10": (36.4, 11.7, None), "U4": (40.0, 9.5, 0),
     "C12": (44.0, RF_OUT_Y, 0), "C13": (46.0, 11.2, None), "L1": (47.6, RF_OUT_Y, 0),
-    "C14": (49.7, 11.2, None), "J5": (63.25, RF_OUT_Y, 0),
+    "C14": (49.7, 11.2, None), "J5": (62.95, RF_OUT_Y, 0),
     # FEM supply (above U4) and control (below U4)
-    "C9": (38.2, 6.4, None), "C10": (41.3, 6.4, None), "FB1": (39.75, 4.3, None),
+    "C9": (38.2, 6.4, "pin2top"), "C10": (41.3, 6.4, "pin2top"), "FB1": (39.75, 4.3, None),
     "C11": (43.6, 4.3, 0),
-    "R11": (37.0, 13.5, None), "R12": (42.5, 13.5, None), "TP1": (36.0, 16.2, 0),
-    "TP2": (43.5, 16.2, 0), "R13": (46.5, 14.0, 0), "D3": (49.6, 14.0, 180),
+    "R11": (38.0, 14.2, None), "R12": (42.5, 14.2, None), "TP1": (36.0, 17.0, 0),
+    "TP2": (43.5, 17.0, 0), "R13": (46.5, 14.0, 0), "D3": (49.6, 14.0, 180),
 }
-HOLES = [(4.0, 4.0), (58.0, 4.0), (4.0, 48.0), (57.0, 48.5)]
+HOLES = [(4.0, 4.0), (56.0, 4.0), (4.0, 48.0), (55.5, 48.5)]
 
 
 def read_netlist(path):
@@ -77,7 +77,7 @@ def main():
     ds.m_MinClearance = FromMM(0.127)
     ds.m_TrackMinWidth = FromMM(0.127)
     ds.m_ViasMinSize = FromMM(0.5)
-    ds.m_MinThroughDrill = FromMM(0.3)
+    ds.m_MinThroughDrill = FromMM(0.2)   # WROOM-32U paddle vias are 0.2 mm (JLC 4-layer ok)
     ds.m_CopperEdgeClearance = FromMM(0.3)
     ds.m_SolderMaskMinWidth = 0
     try:
@@ -112,11 +112,12 @@ def main():
         fp.SetValue(p["value"])
         x, y, rot = PLACE[p["ref"]]
         fp.SetPosition(VECTOR2I_MM(x, y))
-        if rot is None:
-            # 2-pin part standing vertically: choose the rotation that puts pad 1 on top
+        if rot is None or rot == "pin2top":
+            # 2-pin part standing vertically: choose the rotation that puts pad 1 (or 2) on top
+            top = "2" if rot == "pin2top" else "1"
             fp.SetOrientationDegrees(90)
             pads = {pd.GetNumber(): pd.GetPosition() for pd in fp.Pads()}
-            if pads["1"].y > pads["2"].y:
+            if pads[top].y > pads["1" if top == "2" else "2"].y:
                 fp.SetOrientationDegrees(270)
         else:
             fp.SetOrientationDegrees(rot)
@@ -173,9 +174,9 @@ def main():
         t.SetTextAngleDegrees(rot)
         board.Add(t)
 
-    text("ESP32 Wi-Fi FEM  rev A", 32.0, 3.0, size=1.2)
-    text("RF IN (pigtail from module)", 27.0, 13.8, size=0.8)
-    text("ANT", 58.5, 7.0, size=1.0)
+    text("ESP32 Wi-Fi FEM  rev A", 51.0, 24.0, size=1.2)
+    text("RF IN", 27.0, 12.9, size=0.7)
+    text("ANT", 60.5, 2.5, size=0.8)
     text("USB", 32.0, 40.5, size=0.8)
     text("RST", 10.75, 40.5, size=0.8)
     text("BOOT", 19.75, 40.5, size=0.8)
@@ -210,10 +211,12 @@ def main():
     line([("J2", "1"), ("C8", "1")], "RF_IN")
     line([("C8", "2"), ("R8", "1")], "RF_A")
     line([("R9", "1"), (32.6, RF_IN_Y)], "RF_A")
-    line([("R8", "2"), (37.9, RF_IN_Y), ("U4", "4")], "RF_B")
+    line([("R8", "2"), (37.6, RF_IN_Y)], "RF_B")
+    track(VECTOR2I_MM(37.6, RF_IN_Y), pad_pos("U4", "4"), "RF_B", w=0.2)   # neck into the QFN pad
     line([("R10", "1"), (36.4, RF_IN_Y)], "RF_B")
     # output: U4.10 -> C12 -> L1 (pi filter) -> SMA
-    line([("U4", "10"), ("C12", "1")], "RF_C")
+    track(pad_pos("U4", "10"), VECTOR2I_MM(42.4, RF_OUT_Y), "RF_C", w=0.2)  # neck out of the QFN pad
+    line([(42.4, RF_OUT_Y), ("C12", "1")], "RF_C")
     line([("C12", "2"), ("L1", "1")], "RF_D")
     line([("C13", "1"), (46.0, RF_OUT_Y)], "RF_D")
     line([("L1", "2"), ("J5", "1")], "RF_OUT")
@@ -226,8 +229,8 @@ def main():
         track(pp, VECTOR2I_MM(pp.x / 1e6, pp.y / 1e6 + 0.75), "GND", w=0.3)
     for ref in ("C9", "C10"):
         pp = pad_pos(ref, "2")
-        via(pp.x / 1e6, pp.y / 1e6 - 0.75, "GND")
-        track(pp, VECTOR2I_MM(pp.x / 1e6, pp.y / 1e6 - 0.75), "GND", w=0.3)
+        via(pp.x / 1e6, pp.y / 1e6 - 0.8, "GND")
+        track(pp, VECTOR2I_MM(pp.x / 1e6, pp.y / 1e6 - 0.8), "GND", w=0.3)
     # stitching vias along the RF lines (ground fence)
     fence = []
     fence += [(x, 7.9) for x in range(26, 37, 2)] + [(x, 7.9) for x in range(47, 62, 2)]

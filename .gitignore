@@ -14,3 +14,5 @@ firmware/sdkconfig
 firmware/sdkconfig.old
 hardware/kicad/build/*.log
 hardware/kicad/build/run_fr*.sh
+hardware/kicad/build/drc.rpt
+hardware/kicad/build/esp32_fem_raw.dsn
