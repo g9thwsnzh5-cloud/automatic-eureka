@@ -1,0 +1,27 @@
+menu "FEM board"
+
+config FEM_WIFI_SSID
+    string "Wi-Fi SSID"
+    default "myssid"
+
+config FEM_WIFI_PASSWORD
+    string "Wi-Fi password"
+    default "mypassword"
+
+config FEM_TX_POWER_QDBM
+    int "ESP32 max TX power, units of 0.25 dBm (8..84)"
+    range 8 84
+    default 32
+    help
+        32 = 8 dBm at the ESP32 output. RFX2401C input P1dB is about +5 dBm;
+        do not exceed ~40 (10 dBm) with the 0 ohm pad, or fit a 3-6 dB pad
+        (R8/R9/R10) and raise this accordingly.
+
+config FEM_USE_LR_MODE
+    bool "Use 802.11 LR (long range) protocol"
+    default n
+    help
+        Espressif proprietary PHY. Works only between ESP32 devices
+        (both must enable it). Normal phones/routers will not see the network.
+
+endmenu

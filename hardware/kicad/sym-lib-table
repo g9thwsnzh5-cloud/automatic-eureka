@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "esp32_fem")(type "KiCad")(uri "${KIPRJMOD}/lib/esp32_fem.kicad_sym")(options "")(descr "Project symbols"))
+)

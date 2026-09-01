@@ -1,0 +1,14 @@
+# KiCad backups and intermediate build products
+*-backups/
+*.kicad_prl
+*.bak
+fp-info-cache
+hardware/kicad/build/*.dsn
+hardware/kicad/build/*.ses
+hardware/kicad/build/*.net
+hardware/kicad/build/*.png
+hardware/kicad/build/pcb_top.pdf
+# ESP-IDF
+firmware/build/
+firmware/sdkconfig
+firmware/sdkconfig.old
