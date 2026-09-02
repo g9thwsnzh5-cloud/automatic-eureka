@@ -244,12 +244,14 @@ def main():
             pp = pad_pos(ref, "2")
             via(pp.x / 1e6, pp.y / 1e6 - 0.8, "GND")
             track(pp, VECTOR2I_MM(pp.x / 1e6, pp.y / 1e6 - 0.8), "GND", w=0.3)
-        # stitching vias along the RF lines (ground fence)
+        # stitching vias along the RF lines (ground fence) -- rev A positions
         fence = []
         fence += [(x, 7.9) for x in range(26, 37, 2)] + [(x, 7.9) for x in range(47, 62, 2)]
         fence += [(x, 15.5) for x in range(26, 53, 2) if abs(x - 36) > 1.4 and abs(x - 43.5) > 1.4]
         fence += [(x, 12.5) for x in range(53, 62, 2)]
         fence += [(24.5, 8.5), (24.5, 12.0), (34.5, 6.0), (46.5, 5.5), (48.5, 3.5)]
+        if "J2" not in fps:
+            fence = []            # rev B: only the generic fence/stitching below
         for x, y in fence:
             if not any(l <= x <= r and t_ <= y <= b for (l, t_, r, b) in [
                     (fp.GetBoundingBox(False, False).GetLeft() / 1e6 - 0.3, fp.GetBoundingBox(False, False).GetTop() / 1e6 - 0.3,
@@ -277,6 +279,38 @@ def main():
         _v = pcbnew.PCB_VIA(board); _v.SetPosition(VECTOR2I_MM(_vx, _vy)); _v.SetWidth(FromMM(0.6)); _v.SetDrill(FromMM(0.3))
         _v.SetViaType(pcbnew.VIATYPE_THROUGH); _v.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu); _v.SetNet(netmap[_vn]); _v.SetLocked(True); board.Add(_v)
 
+    # CC1 is boxed in between the USB pads: route it by hand (freerouting gave up on it)
+    line([("J1", "A5"), (31.75, 42.5), (28.6, 42.5), (27.99, 41.9), ("R1", "1")], "CC1", w=0.2)
+
+    # pads sharing a number (tactile switch legs, SOT-223 tab+pin): freerouting treats them as
+    # one pin and never routes between them; KiCad wants copper -> join with a locked track
+    for _fp in board.GetFootprints():
+        if _fp.GetPadCount() > 6:
+            continue              # connectors (USB-C shell legs): the pour joins them
+        _groups = {}
+        for _p in _fp.Pads():
+            if _p.GetNetCode() > 0:
+                _groups.setdefault((_p.GetNumber(), _p.GetNetCode()), []).append(_p)
+        for (_num, _nc), _pl in _groups.items():
+            for _a, _b in zip(_pl, _pl[1:]):
+                ax, ay = _a.GetPosition().x / 1e6, _a.GetPosition().y / 1e6
+                bx, by = _b.GetPosition().x / 1e6, _b.GetPosition().y / 1e6
+                blocked = False
+                for _o in board.GetPads():
+                    if _o.GetNetCode() == _nc:
+                        continue
+                    _ob = _o.GetBoundingBox()
+                    l, t_, r, b_ = _ob.GetLeft() / 1e6 - 0.35, _ob.GetTop() / 1e6 - 0.35, _ob.GetRight() / 1e6 + 0.35, _ob.GetBottom() / 1e6 + 0.35
+                    if any(l <= ax + (bx - ax) * k / 20 <= r and t_ <= ay + (by - ay) * k / 20 <= b_ for k in range(21)):
+                        blocked = True
+                        break
+                if blocked:
+                    continue      # straight jumper would cross a foreign pad (SMA centre pin): leave to the pour
+                _t = pcbnew.PCB_TRACK(board)
+                _t.SetStart(_a.GetPosition()); _t.SetEnd(_b.GetPosition()); _t.SetWidth(FromMM(0.3))
+                _t.SetLayer(pcbnew.F_Cu); _t.SetNetCode(_nc); _t.SetLocked(True)
+                board.Add(_t)
+
     # spots free of footprints (for fence / stitching vias)
     _boxes = []
     for _fp in board.GetFootprints():
@@ -295,8 +329,12 @@ def main():
         t = max(0.0, min(1.0, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)))
         return ((px - x1 - t * dx) ** 2 + (py - y1 - t * dy) ** 2) ** 0.5
 
+    _vias = [(t.GetPosition().x / 1e6, t.GetPosition().y / 1e6) for t in board.GetTracks() if t.GetClass() == "PCB_VIA"]
+
     def free(x, y, rf_min=1.0):
         if not (1.2 < x < BOARD_W - 1.2 and 1.2 < y < BOARD_H - 1.2):
+            return False
+        if any((x - vx) ** 2 + (y - vy) ** 2 < 1.0 for vx, vy in _vias):
             return False
         for l, t_, r, b in _boxes:
             if l <= x <= r and t_ <= y <= b:
@@ -304,6 +342,93 @@ def main():
         if any(_dseg(x, y, *sg[:4]) < 0.6 for sg in _all_segs):
             return False
         return all(_dseg(x, y, *sg) >= rf_min for sg in _rf_segs)
+
+    # GND fanout: every small SMD GND pad gets its own via to the planes (short 0.3 mm stub),
+    # placed before autorouting so the router treats them as obstacles
+    if getattr(_d, "GND_FANOUT", False):
+        import math as _m
+        _gnd = netmap["GND"].GetNetCode()
+        _pads = []
+        for _fp in board.GetFootprints():
+            for _p in _fp.Pads():
+                _bb = _p.GetBoundingBox()
+                _pads.append((_bb.GetLeft() / 1e6, _bb.GetTop() / 1e6, _bb.GetRight() / 1e6, _bb.GetBottom() / 1e6, _p))
+        _big = [(_bb.GetLeft() / 1e6, _bb.GetTop() / 1e6, _bb.GetRight() / 1e6, _bb.GetBottom() / 1e6, _fp)
+                for _fp in board.GetFootprints() for _bb in [_fp.GetBoundingBox(False, False)] if _fp.GetPadCount() > 8]
+
+        def _why(x, y, own, r):
+            if not (1.0 < x < BOARD_W - 1.0 and 1.0 < y < BOARD_H - 1.0):
+                return "edge"
+            for l, t_, rr, b, pp in _pads:
+                if pp.m_Uuid.AsString() == own.m_Uuid.AsString():
+                    continue
+                m = 0.15 if pp.GetNetCode() == _gnd else r      # same-net neighbours may sit close
+                if l - m <= x <= rr + m and t_ - m <= y <= b + m:
+                    return "pad %s-%s" % (pp.GetParent().GetReference(), pp.GetNumber())
+            for l, t_, rr, b, fpb in _big:
+                if fpb.GetReference() == own.GetParent().GetReference():
+                    continue           # a stub next to its own pad is fine
+                if l - 0.2 <= x <= rr + 0.2 and t_ - 0.2 <= y <= b + 0.2:
+                    return "body " + fpb.GetReference()
+            if any(_dseg(x, y, *sg[:4]) < r + 0.25 for sg in _all_segs if sg[4] != _gnd):
+                return "track"
+            if any(_dseg(x, y, *sg) < 0.75 for sg in _rf_segs):
+                return "rf"
+            if not all((x - vx) ** 2 + (y - vy) ** 2 >= 0.8 ** 2 for vx, vy in _vias):
+                return "via"
+            return ""
+
+        def _clear(x, y, own, r):
+            return _why(x, y, own, r) == ""
+
+        _fan = 0
+        _dbg = os.environ.get("DEBUG_FANOUT", "")
+        for _fp in board.GetFootprints():
+            _fc = _fp.GetPosition()
+            # QFN with a GND paddle: tie the GND side pins to the paddle with short stubs
+            _ep = [q for q in _fp.Pads() if q.GetNetCode() == _gnd and q.GetAttribute() == pcbnew.PAD_ATTRIB_SMD
+                   and min(q.GetSize().x, q.GetSize().y) / 1e6 >= 1.5]
+            if _ep:
+                _e = _ep[0]
+                ex, ey = _e.GetPosition().x / 1e6, _e.GetPosition().y / 1e6
+                ew, eh = _e.GetSize().x / 1e6 / 2, _e.GetSize().y / 1e6 / 2
+                for _p in _fp.Pads():
+                    if _p.GetNetCode() != _gnd or _p is _e or max(_p.GetSize().x, _p.GetSize().y) / 1e6 > 1.5:
+                        continue
+                    px, py = _p.GetPosition().x / 1e6, _p.GetPosition().y / 1e6
+                    sx, sy = _p.GetSize().x / 1e6, _p.GetSize().y / 1e6
+                    tx, ty = (ex, py) if sx > sy else (px, ey)
+                    if abs(tx - ex) <= ew and abs(ty - ey) <= eh:
+                        track(VECTOR2I_MM(px, py), VECTOR2I_MM(tx, ty), "GND", w=min(sx, sy))
+                        _fan += 1
+                continue
+            for _p in _fp.Pads():
+                if _p.GetNetCode() != _gnd or _p.GetAttribute() != pcbnew.PAD_ATTRIB_SMD:
+                    continue
+                if _p.GetSize().x / 1e6 > 2.0 or _p.GetSize().y / 1e6 > 2.0:
+                    continue          # exposed pads / big lugs have their own vias
+                px, py = _p.GetPosition().x / 1e6, _p.GetPosition().y / 1e6
+                if any((px - vx) ** 2 + (py - vy) ** 2 < 1.0 for vx, vy in _vias):
+                    continue          # already has a via next to it
+                a0 = _m.atan2(py - _fc.y / 1e6, px - _fc.x / 1e6)
+                done = False
+                for dang in (0, 45, -45, 90, -90, 135, -135, 180):
+                    a = a0 + _m.radians(dang)
+                    for dist in (0.75, 0.9, 1.1, 1.4):
+                        vx, vy = px + dist * _m.cos(a), py + dist * _m.sin(a)
+                        mx, my = (px + vx) / 2, (py + vy) / 2
+                        if _dbg and _fp.GetReference() == _dbg:
+                            print("  try", _p.GetNumber(), round(vx, 2), round(vy, 2), _why(vx, vy, _p, 0.42) or "ok", "/", _why(mx, my, _p, 0.3) or "ok")
+                        if _clear(vx, vy, _p, 0.42) and _clear(mx, my, _p, 0.3):
+                            via(vx, vy, "GND", d=0.5, drill=0.25)
+                            track(VECTOR2I_MM(px, py), VECTOR2I_MM(vx, vy), "GND", w=0.3)
+                            _p.SetZoneConnection(pcbnew.ZONE_CONNECTION_NONE)   # the stub is the connection (no starved-thermal DRC)
+                            _vias.append((vx, vy)); _all_segs.append((px, py, vx, vy, _gnd))
+                            _fan += 1; done = True
+                            break
+                    if done:
+                        break
+        print("GND fanout vias:", _fan)
 
     _stitch = getattr(_d, "STITCH", 0)
     if _stitch:
@@ -314,7 +439,7 @@ def main():
             _x = 2.0 + (_gx / 2 if int(_y / _stitch) % 2 else 0)
             while _x < BOARD_W - 1.5:
                 if free(_x, _y, rf_min=1.2):
-                    via(_x, _y, "GND"); _n += 1
+                    via(_x, _y, "GND"); _vias.append((_x, _y)); _n += 1
                 _x += _gx
             _y += _stitch
         # RF fence: vias 0.9 mm either side of every hand-routed RF segment
@@ -329,7 +454,7 @@ def main():
                 for sgn in (1, -1):
                     fx, fy = cx + sgn * 0.95 * nx, cy + sgn * 0.95 * ny
                     if free(fx, fy, rf_min=0.85):
-                        via(fx, fy, "GND"); _n += 1
+                        via(fx, fy, "GND"); _vias.append((fx, fy)); _n += 1
                 k += 1.6
         print("stitching/fence vias:", _n)
 
@@ -354,9 +479,6 @@ def main():
                      (inset, BOARD_H - inset)]:
             z.AppendCorner(VECTOR2I_MM(x, y), -1)
         board.Add(z)
-
-    # CC1 is boxed in between the USB pads: route it by hand (freerouting gave up on it)
-    line([("J1", "A5"), (31.75, 42.5), (28.6, 42.5), (27.99, 41.9), ("R1", "1")], "CC1", w=0.2)
 
     # RF pads: solid connection to the pour (GND side of shunt parts and QFN paddle)
     for ref in ("U4", "J2", "J5", "C13", "C14", "R9", "R10", "C9", "C10", "U1", "J1", "R41", "C41", "C4", "R12", "C6", "J4", "C43", "U2", "J5", "R2", "C42"):
