@@ -157,7 +157,47 @@ def do_import():
     subprocess.check_call([sys.executable, os.path.abspath(__file__), "repair"], env=dict(os.environ, DESIGN=_DM))
 
 
+def drop_overlapping_fragments(board):
+    """freerouting echoes short pieces of fixed traces as new wires; they end up as dangling
+    stubs lying on top of the locked copper. Remove every unlocked segment whose both ends
+    lie on a locked segment of the same net."""
+    locked = [t for t in board.GetTracks() if t.GetClass() == "PCB_TRACK" and t.IsLocked()]
+
+    def on_seg(p, t):
+        a, b = t.GetStart(), t.GetEnd()
+        ax, ay, bx, by, px, py = a.x / 1e6, a.y / 1e6, b.x / 1e6, b.y / 1e6, p.x / 1e6, p.y / 1e6
+        dx, dy = bx - ax, by - ay
+        L2 = dx * dx + dy * dy
+        if L2 == 0:
+            return False
+        k = ((px - ax) * dx + (py - ay) * dy) / L2
+        if k < -0.01 or k > 1.01:
+            return False
+        return abs((px - ax) * dy - (py - ay) * dx) / L2 ** 0.5 < 0.02
+
+    n = 0
+    for t in list(board.GetTracks()):
+        if t.GetClass() != "PCB_TRACK" or t.IsLocked():
+            continue
+        same = [l for l in locked if l.GetNetCode() == t.GetNetCode() and l.GetLayer() == t.GetLayer()]
+        a = any(on_seg(t.GetStart(), l) for l in same)
+        b = any(on_seg(t.GetEnd(), l) for l in same)
+        if (a and b) or ((a or b) and t.GetLength() < 5e5):
+            board.Remove(t); n += 1
+    if n:
+        print("dropped %d fragments lying on locked tracks" % n)
+    return n
+
+
+def do_cleanup():
+    board = pcbnew.LoadBoard(PCB)
+    if drop_overlapping_fragments(board):
+        pcbnew.SaveBoard(PCB, board)
+
+
 def do_repair():
+    # cleanup in its own interpreter (Remove() + reload breaks SWIG wrappers in-process)
+    subprocess.check_call([sys.executable, os.path.abspath(__file__), "cleanup"], env=dict(os.environ, DESIGN=_DM))
     board = pcbnew.LoadBoard(PCB)
     fill(board)
     for _ in range(3):
@@ -306,4 +346,4 @@ def do_fab():
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "drc"
-    {"dsn": do_dsn, "import": do_import, "repair": do_repair, "drc": do_drc, "fab": do_fab}[cmd]()
+    {"dsn": do_dsn, "import": do_import, "repair": do_repair, "cleanup": do_cleanup, "drc": do_drc, "fab": do_fab}[cmd]()
