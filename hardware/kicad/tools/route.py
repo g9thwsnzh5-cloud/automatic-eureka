@@ -104,6 +104,61 @@ def do_dsn():
                    "      (rule\n        (width 250)\n        (clearance 150.1)\n      )\n    )\n" % " ".join(_skip))
         i = d.rfind("  )\n  (wiring")
         d = d[:i] + skclass + d[i:]
+    _pwr = [n for n in getattr(_d, "PWR_NETS", []) if ("(net %s\n" % n) in d or ('(net "%s"\n' % n) in d]
+    if _pwr:
+        m = _re.search(r'\(class kicad_default "" (.*?)\n      \(circuit', d, _re.S)
+        body = m.group(1)
+        for n in _pwr:
+            body = _re.sub(r'(?<=[\s"])%s(?=[\s"])' % _re.escape(n), "", body)
+        d = d[:m.start(1)] + body + d[m.end(1):]
+        pwclass = ("    (class PWR \"\" %s\n      (circuit\n        (use_via Via[0-3]_600:300_um)\n      )\n"
+                   "      (rule\n        (width 400)\n        (clearance 150.1)\n      )\n    )\n" % " ".join(_pwr))
+        i = d.rfind("  )\n  (wiring")
+        d = d[:i] + pwclass + d[i:]
+    # keepouts: no vias within 1.5 mm of the hand-routed RF lines (In1 antipads), no F.Cu routing
+    # under a big QFN between its pin rows and the paddle (freerouting loves that 0.5 mm channel)
+    _ko = []
+    _rf_ids = {board.FindNet(n).GetNetCode() for n in RF_NETS if board.FindNet(n)}
+    # board outline: freerouting keeps only the class clearance from the boundary; pull the
+    # boundary in so copper ends >= 0.5 mm from the real edge (KiCad rule m_CopperEdgeClearance)
+    _ins = int(board.GetDesignSettings().m_CopperEdgeClearance / 1e3) - 150
+    if _ins > 0:
+        def _inset(m):
+            nums = [int(float(v)) for v in m.group(1).split()]
+            xs, ys = nums[0::2], nums[1::2]
+            x0, x1, y0, y1 = min(xs) + _ins, max(xs) - _ins, min(ys) + _ins, max(ys) - _ins
+            return "(path pcb 0  %d %d  %d %d  %d %d  %d %d  %d %d)" % (x1, y0, x0, y0, x0, y1, x1, y1, x1, y0)
+        d = _re.sub(r"\(path pcb 0\s+([-\d.\s]+?)\)", _inset, d, count=1)
+    for t in board.GetTracks():
+        if t.GetClass() == "PCB_TRACK" and t.GetNetCode() in _rf_ids:
+            x1, y1, x2, y2 = t.GetStart().x / 1e3, t.GetStart().y / 1e3, t.GetEnd().x / 1e3, t.GetEnd().y / 1e3
+            L = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+            if L < 100:
+                continue
+            nx, ny = -(y2 - y1) / L * 1500, (x2 - x1) / L * 1500
+            ex, ey = (x2 - x1) / L * 300, (y2 - y1) / L * 300
+            pts = [(x1 - ex + nx, y1 - ey + ny), (x2 + ex + nx, y2 + ey + ny), (x2 + ex - nx, y2 + ey - ny), (x1 - ex - nx, y1 - ey - ny)]
+            _ko.append('    (via_keepout "" (polygon signal 0 %s))' % " ".join("%d %d" % (px, -py) for px, py in pts))
+    for fp in board.GetFootprints():
+        ep = [q for q in fp.Pads() if q.GetAttribute() == pcbnew.PAD_ATTRIB_SMD and min(q.GetSize().x, q.GetSize().y) / 1e6 >= 4.0]
+        if not ep:
+            continue
+        cx, cy = fp.GetPosition().x / 1e3, fp.GetPosition().y / 1e3
+        inner = min(max(abs(q.GetPosition().x / 1e3 - cx), abs(q.GetPosition().y / 1e3 - cy)) - max(q.GetSize().x, q.GetSize().y) / 2e3
+                    for q in fp.Pads() if q.GetAttribute() == pcbnew.PAD_ATTRIB_SMD and q.GetNumber() != ep[0].GetNumber()) - 100
+        # strip next to the pin row that carries the RF pin (the row facing +x after the 180 deg
+        # placement): nothing may run between those pins and the paddle
+        rfp = [q for q in fp.Pads() if q.GetNetCode() in _rf_ids]
+        if not rfp:
+            continue
+        sx = 1 if rfp[0].GetPosition().x / 1e3 > cx else -1
+        x0, x1 = sorted((cx + sx * 900, cx + sx * inner))
+        pts = [(x0, cy - inner), (x1, cy - inner), (x1, cy + inner), (x0, cy + inner)]
+        _ko.append('    (keepout "" (polygon F.Cu 0 %s))' % " ".join("%d %d" % (px, -py) for px, py in pts))
+    if _ko:
+        i = d.index("    (plane ")
+        d = d[:i] + "\n".join(_ko) + "\n" + d[i:]
+        print("keepouts:", len(_ko))
     if getattr(_d, "NO_INNER_ROUTING", False):
         # planes: tell freerouting not to route on In1/In2
         d = _re.sub(r"\(layer (In1)\.Cu\n(\s+)\(type signal\)", r"(layer \1.Cu\n\2(type power)", d)
@@ -179,10 +234,13 @@ def drop_overlapping_fragments(board):
     for t in list(board.GetTracks()):
         if t.GetClass() != "PCB_TRACK" or t.IsLocked():
             continue
+        if t.GetLength() == 0:
+            board.Remove(t); n += 1
+            continue
         same = [l for l in locked if l.GetNetCode() == t.GetNetCode() and l.GetLayer() == t.GetLayer()]
         a = any(on_seg(t.GetStart(), l) for l in same)
         b = any(on_seg(t.GetEnd(), l) for l in same)
-        if (a and b) or ((a or b) and t.GetLength() < 5e5):
+        if a and b:
             board.Remove(t); n += 1
     if n:
         print("dropped %d fragments lying on locked tracks" % n)

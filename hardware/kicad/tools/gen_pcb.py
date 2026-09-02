@@ -141,8 +141,8 @@ def main():
             attrs |= pcbnew.FP_EXCLUDE_FROM_POS_FILES
         fp.SetAttributes(attrs)
         r = fp.Reference()
-        r.SetTextSize(VECTOR2I(FromMM(0.8), FromMM(0.8)))
-        r.SetTextThickness(FromMM(0.12))
+        r.SetTextSize(VECTOR2I(FromMM(1.0), FromMM(1.0)))      # JLC silk minimum 1.0 / 0.15
+        r.SetTextThickness(FromMM(0.15))
         fp.Value().SetVisible(False)
         fp.SetProperty("LCSC", p.get("lcsc", ""))
         board.Add(fp)
