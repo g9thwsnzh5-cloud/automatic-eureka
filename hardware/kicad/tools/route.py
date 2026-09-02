@@ -146,7 +146,7 @@ def do_drc():
 
 
 def do_fab():
-    fab = os.path.join(BUILD, "fab")
+    fab = os.path.join(BUILD, "fab" if _PROJECT == "esp32_fem" else "fab_" + _PROJECT.replace("esp32_fem_", ""))
     os.makedirs(fab, exist_ok=True)
     layers = "F.Cu,In1.Cu,In2.Cu,B.Cu,F.Paste,B.Paste,F.SilkS,B.SilkS,F.Mask,B.Mask,Edge.Cuts"
     subprocess.check_call(["kicad-cli", "pcb", "export", "gerbers", "--layers", layers,
@@ -159,7 +159,7 @@ def do_fab():
     board = pcbnew.LoadBoard(PCB)
     meta = {p["ref"]: p for p in PARTS}
     bom = {}
-    with open(os.path.join(fab, "esp32_fem_cpl.csv"), "w", newline="") as f:
+    with open(os.path.join(fab, _PROJECT + "_cpl.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
         for fp in board.GetFootprints():
@@ -173,7 +173,7 @@ def do_fab():
                         "%.1f" % fp.GetOrientationDegrees()])
             key = (p["value"], p["fp"].split(":")[1], p["lcsc"])
             bom.setdefault(key, []).append(ref)
-    with open(os.path.join(fab, "esp32_fem_bom.csv"), "w", newline="") as f:
+    with open(os.path.join(fab, _PROJECT + "_bom.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #"])
         for (val, fpn, lcsc), refs in sorted(bom.items(), key=lambda kv: kv[1][0]):

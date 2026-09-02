@@ -290,7 +290,7 @@ def main():
     line([("J1", "A5"), (31.75, 42.5), (28.6, 42.5), (27.99, 41.9), ("R1", "1")], "CC1", w=0.2)
 
     # RF pads: solid connection to the pour (GND side of shunt parts and QFN paddle)
-    for ref in ("U4", "J2", "J5", "C13", "C14", "R9", "R10", "C9", "C10", "U1", "J1"):
+    for ref in ("U4", "J2", "J5", "C13", "C14", "R9", "R10", "C9", "C10", "U1", "J1", "R41", "C41", "C4", "R12"):
         if ref not in fps:
             continue
         for pd in fps[ref].Pads():
