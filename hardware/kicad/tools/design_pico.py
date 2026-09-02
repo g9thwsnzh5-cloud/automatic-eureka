@@ -29,6 +29,9 @@ COMMON = [dict(p) for p in _base.PARTS if p["ref"] not in DROP]
 for p in COMMON:
     if p["ref"] == "C8":
         p["pins"] = {"1": "RF_PICO", "2": "RF_A"}
+    if p["ref"] == "J4":   # IO16/IO17 у PICO-D4 заняты внутренней флешью: штырьки 8/9 не подключаем
+        p["pins"] = {k: v for k, v in p["pins"].items() if k not in ("8", "9")}
+        p["nc"] = ["8", "9"]
 
 PICO = [
     dict(ref="U1", sym="esp32_pico:ESP32-PICO-D4", value="ESP32-PICO-D4", fp="esp32_proj:ESP32-PICO-D4",

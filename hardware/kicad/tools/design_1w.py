@@ -63,7 +63,11 @@ RF_1W = [
     dict(ref="U10", sym="esp32_1w:RFSW8009", value="RFSW8009", fp="esp32_proj:RFSW8009_DFN6_1.86x1.5", lcsc="",
          pins={"5": "SW_COM", "1": "TX_PATH", "3": "RX_PATH", "6": "TX_EN", "4": "RX_EN", "2": "GND"}),
     dict(ref="C21", sym="Device:C", value="100pF", fp=C0402, lcsc="C1546",
-         pins={"1": "TX_PATH", "2": "PA_IN"}),
+         pins={"1": "TX_PATH", "2": "ATT_IN"}),
+    # Пи-аттенюатор 6 дБ перед TX_IN (QPF4219: abs.max +12 дБм, для +28 дБм на выходе нужно ~-5 дБм)
+    dict(ref="R22", sym="Device:R", value="39R", fp=R0402, lcsc="", pins={"1": "ATT_IN", "2": "PA_IN"}),
+    dict(ref="R23", sym="Device:R", value="150R", fp=R0402, lcsc="", pins={"1": "ATT_IN", "2": "GND"}),
+    dict(ref="R24", sym="Device:R", value="150R", fp=R0402, lcsc="", pins={"1": "PA_IN", "2": "GND"}),
     dict(ref="C22", sym="Device:C", value="100pF", fp=C0402, lcsc="C1546",
          pins={"1": "RX_PATH", "2": "LNA_OUT"}),
     # QPF4219 QFN-24 (распиновка из GPL-схемы Reach Out, лист 2, U9)
@@ -72,8 +76,8 @@ RF_1W = [
                "4": "TX_EN", "19": "TX_EN", "16": "RX_EN",
                "10": "V_PA", "22": "V_PA", "23": "V_PA", "24": "V_PA",
                "1": "GND", "3": "GND", "7": "GND", "9": "GND", "11": "GND", "14": "GND",
-               "18": "GND", "21": "GND", "25": "GND"},
-         nc=["5", "6", "8", "20"]),
+               "18": "GND", "21": "GND", "25": "GND", "8": "GND", "20": "GND"},
+         nc=["5", "6"]),
     # Внешняя перемычка RX_OUT -> LNA_IN (можно обойти LNA, поставив 0R/через С)
     dict(ref="C23", sym="Device:C", value="100pF", fp=C0402, lcsc="C1546",
          pins={"1": "RX_OUT", "2": "LNA_IN"}),
@@ -101,6 +105,17 @@ RF_1W = [
          pins={"1": "V_PA", "2": "GND"}),
     dict(ref="C30", sym="Device:C", value="10pF", fp=C0402, lcsc="C32949",
          pins={"1": "V_PA", "2": "GND"}),
+    # Развязка у КАЖДОГО вывода питания QPF4219 (по EVB Qorvo: 2.2u + 0.1u на VCC0/1/2, 0.1u на VDD)
+    dict(ref="C31", sym="Device:C", value="100nF", fp=C0402, lcsc="C1525", pins={"1": "V_PA", "2": "GND"}),
+    dict(ref="C32", sym="Device:C", value="100nF", fp=C0402, lcsc="C1525", pins={"1": "V_PA", "2": "GND"}),
+    dict(ref="C33", sym="Device:C", value="100nF", fp=C0402, lcsc="C1525", pins={"1": "V_PA", "2": "GND"}),
+    dict(ref="C34", sym="Device:C", value="100nF", fp=C0402, lcsc="C1525", pins={"1": "V_PA", "2": "GND"}),
+    dict(ref="C35", sym="Device:C", value="2.2uF", fp=C0402, lcsc="", pins={"1": "V_PA", "2": "GND"}),
+    dict(ref="C36", sym="Device:C", value="2.2uF", fp=C0402, lcsc="", pins={"1": "V_PA", "2": "GND"}),
+    dict(ref="C37", sym="Device:C", value="2.2uF", fp=C0402, lcsc="", pins={"1": "V_PA", "2": "GND"}),
+    # ВЧ-фильтрация линий управления (EVB: 100p на PA_EN; RFSW8009 EVB: 1n на VCONT)
+    dict(ref="C38", sym="Device:C", value="1nF", fp=C0402, lcsc="C1523", pins={"1": "TX_EN", "2": "GND"}),
+    dict(ref="C39", sym="Device:C", value="1nF", fp=C0402, lcsc="C1523", pins={"1": "RX_EN", "2": "GND"}),
     # Подтяжки управления вниз (PA спит до инициализации)
     dict(ref="R20", sym="Device:R", value="10k", fp=R0402, lcsc="C25744",
          pins={"1": "TX_EN", "2": "GND"}),
@@ -116,7 +131,7 @@ RF_1W = [
 
 PARTS = COMMON + RF_1W
 PWR_FLAG_NETS = ["GND", "VBUS", "+5V", "V_PA"]
-RF_NETS = ["RF_ESP", "SW_COM", "TX_PATH", "RX_PATH", "PA_IN", "PA_ANT",
+RF_NETS = ["RF_ESP", "SW_COM", "TX_PATH", "RX_PATH", "ATT_IN", "PA_IN", "PA_ANT",
            "RX_OUT", "LNA_IN", "LNA_OUT", "ANT_A", "ANT_B", "RF_OUT"]
 PROJECT = "esp32_fem_1w"
 TITLE = "ESP32 Wi-Fi 1W front-end (QPF4219) board rev A"

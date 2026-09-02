@@ -176,6 +176,8 @@ def main():
                             dnp=p.get("dnp", False), jlc=p.get("jlc", True), lcsc=p.get("lcsc", ""))
         nc = set(p.get("nc", []))
         for num, name, ptype, px, py, ang, hidden in pins:
+            if abs(px / GRID - round(px / GRID)) > 1e-3 or abs(py / GRID - round(py / GRID)) > 1e-3:
+                raise ValueError("%s pin %s is off-grid (%s,%s): label would not connect" % (p["ref"], num, px, py))
             ex, ey = snap(X + px), snap(Y - py)
             if num in nc:
                 ncs.append('  (no_connect (at %s %s) (uuid "%s"))' % (ex, ey, u()))
