@@ -94,15 +94,16 @@ PLACE_EXTRA = {
     "R43": (25.5, 7.8, None),
 }
 # ВЧ-тракт разводит freerouting (RF идёт с вывода чипа, не хардкодим)
-HAND_RF = False
+HAND_RF = True   # ВЧ-цепь усилителя как в rev A (вручную), вход LNA_IN->C8 в PREROUTE
 
 
 
 # Второй внутренний слой — плоскость +3V3 (стек SIG/GND/PWR/SIG). ВЧ-опора In1 остаётся GND.
-IN2_NET = "+3V3"
+IN2_NET = "GND"   # In2 — земля и слой для сигналов; In1 — сплошная опора ВЧ (не трассируется)
 # ВЧ от LNA_IN к C8 — вручную, 0.38 мм, зафиксировано (freerouting обходит)
 PREROUTE = [
     {"net": "RF_PICO", "points": [("U1", "2"), (27.5, 16.25), (27.5, 12.0), ("C8", "1")], "w": 0.38},
 ]
-NO_INNER_ROUTING = True          # In1 (GND) и In2 (+3V3) сплошные, сигналы только F/B
+NO_INNER_ROUTING = True          # In1 закрыт для трассировки
+STITCH = 4.0                     # сетка земляных стежков, мм
 SILK = [("ESP32-PICO Wi-Fi FEM  rev B", 51.0, 24.0, 1.2)]

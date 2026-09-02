@@ -93,7 +93,7 @@ def do_dsn():
     d = d[:i] + rfclass + d[i:]
     if getattr(_d, "NO_INNER_ROUTING", False):
         # planes: tell freerouting not to route on In1/In2
-        d = _re.sub(r"\(layer (In[12])\.Cu\n(\s+)\(type signal\)", r"(layer \1.Cu\n\2(type power)", d)
+        d = _re.sub(r"\(layer (In1)\.Cu\n(\s+)\(type signal\)", r"(layer \1.Cu\n\2(type power)", d)
     d = "\n".join(l for l in d.split("\n") if "plane GND (polygon F.Cu" not in l and "plane GND (polygon B.Cu" not in l)
     out = os.path.join(BUILD, _DSN)
     open(out, "w").write(d)
@@ -106,7 +106,8 @@ def do_import():
     wires, vias = parse_ses(os.path.join(BUILD, _SES))
     # the session contains every wire and via (pre-routed RF included): start clean
     for t in list(board.GetTracks()):
-        board.Remove(t)
+        if not t.IsLocked():          # keep hand/pre-routed (locked) copper
+            board.Remove(t)
     nets = {n: board.FindNet(n) for n in {w[3] for w in wires} | {v[2] for v in vias}}
     layer_ids = {board.GetLayerName(l): l for l in range(pcbnew.PCB_LAYER_ID_COUNT) if board.IsLayerEnabled(l)}
     n_t = n_v = 0

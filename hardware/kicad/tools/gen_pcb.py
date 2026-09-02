@@ -220,7 +220,8 @@ def main():
 
     if HAND_RF:
         # input: U.FL -> C8 -> R8 -> U4.4, with shunt stubs to R9/R10
-        line([("J2", "1"), ("C8", "1")], "RF_IN")
+        if "J2" in fps:
+            line([("J2", "1"), ("C8", "1")], "RF_IN")
         line([("C8", "2"), ("R8", "1")], "RF_A")
         line([("R9", "1"), (32.6, RF_IN_Y)], "RF_A")
         line([("R8", "2"), (37.6, RF_IN_Y)], "RF_B")
@@ -250,7 +251,11 @@ def main():
         fence += [(x, 12.5) for x in range(53, 62, 2)]
         fence += [(24.5, 8.5), (24.5, 12.0), (34.5, 6.0), (46.5, 5.5), (48.5, 3.5)]
         for x, y in fence:
-            via(x, y, "GND")
+            if not any(l <= x <= r and t_ <= y <= b for (l, t_, r, b) in [
+                    (fp.GetBoundingBox(False, False).GetLeft() / 1e6 - 0.3, fp.GetBoundingBox(False, False).GetTop() / 1e6 - 0.3,
+                     fp.GetBoundingBox(False, False).GetRight() / 1e6 + 0.3, fp.GetBoundingBox(False, False).GetBottom() / 1e6 + 0.3)
+                    for fp in board.GetFootprints()]):
+                via(x, y, "GND")
 
     else:
         # pico: freerouting routes RF; add a couple of GND fence vias near the FEM
@@ -265,6 +270,59 @@ def main():
                 _t.SetStart(_a); _t.SetEnd(_b); _t.SetWidth(FromMM(_pr.get("w", 0.25)))
                 _t.SetLayer(_lay); _t.SetNet(netmap[_pr["net"]]); _t.SetLocked(True)
                 board.Add(_t)
+
+    # spots free of footprints (for fence / stitching vias)
+    _boxes = []
+    for _fp in board.GetFootprints():
+        _bb = _fp.GetBoundingBox(False, False)
+        _boxes.append((_bb.GetLeft() / 1e6 - 0.45, _bb.GetTop() / 1e6 - 0.45,
+                       _bb.GetRight() / 1e6 + 0.45, _bb.GetBottom() / 1e6 + 0.45))
+    _rf_ids = {netmap[n].GetNetCode() for n in RF_NETS if n in netmap}
+    _rf_segs = [(t.GetStart().x / 1e6, t.GetStart().y / 1e6, t.GetEnd().x / 1e6, t.GetEnd().y / 1e6)
+                for t in board.GetTracks() if t.GetClass() == "PCB_TRACK" and t.GetNetCode() in _rf_ids]
+
+    def _dseg(px, py, x1, y1, x2, y2):
+        dx, dy = x2 - x1, y2 - y1
+        if dx == dy == 0:
+            return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+        t = max(0.0, min(1.0, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)))
+        return ((px - x1 - t * dx) ** 2 + (py - y1 - t * dy) ** 2) ** 0.5
+
+    def free(x, y, rf_min=1.0):
+        if not (1.2 < x < BOARD_W - 1.2 and 1.2 < y < BOARD_H - 1.2):
+            return False
+        for l, t_, r, b in _boxes:
+            if l <= x <= r and t_ <= y <= b:
+                return False
+        return all(_dseg(x, y, *sg) >= rf_min for sg in _rf_segs)
+
+    _stitch = getattr(_d, "STITCH", 0)
+    if _stitch:
+        _n = 0
+        _gx = _stitch
+        _y = 2.0
+        while _y < BOARD_H - 1.5:
+            _x = 2.0 + (_gx / 2 if int(_y / _stitch) % 2 else 0)
+            while _x < BOARD_W - 1.5:
+                if free(_x, _y, rf_min=1.2):
+                    via(_x, _y, "GND"); _n += 1
+                _x += _gx
+            _y += _stitch
+        # RF fence: vias 0.9 mm either side of every hand-routed RF segment
+        for x1, y1, x2, y2 in _rf_segs:
+            L = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+            if L < 1.0:
+                continue
+            nx, ny = -(y2 - y1) / L, (x2 - x1) / L
+            k = 0.8
+            while k < L - 0.4:
+                cx, cy = x1 + (x2 - x1) * k / L, y1 + (y2 - y1) * k / L
+                for sgn in (1, -1):
+                    fx, fy = cx + sgn * 0.95 * nx, cy + sgn * 0.95 * ny
+                    if free(fx, fy, rf_min=0.85):
+                        via(fx, fy, "GND"); _n += 1
+                k += 1.6
+        print("stitching/fence vias:", _n)
 
     # GND pours on all layers ---------------------------------------------
     _in2 = getattr(_d, "IN2_NET", "GND")   # pico: In2 is a +3V3 plane (SIG/GND/PWR/SIG stack)
@@ -290,7 +348,7 @@ def main():
     line([("J1", "A5"), (31.75, 42.5), (28.6, 42.5), (27.99, 41.9), ("R1", "1")], "CC1", w=0.2)
 
     # RF pads: solid connection to the pour (GND side of shunt parts and QFN paddle)
-    for ref in ("U4", "J2", "J5", "C13", "C14", "R9", "R10", "C9", "C10", "U1", "J1", "R41", "C41", "C4", "R12"):
+    for ref in ("U4", "J2", "J5", "C13", "C14", "R9", "R10", "C9", "C10", "U1", "J1", "R41", "C41", "C4", "R12", "C6", "J4", "C43", "U2", "J5"):
         if ref not in fps:
             continue
         for pd in fps[ref].Pads():
