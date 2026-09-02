@@ -35,7 +35,7 @@ for p in COMMON:
 
 PICO = [
     dict(ref="U1", sym="esp32_pico:ESP32-PICO-D4", value="ESP32-PICO-D4", fp="esp32_proj:ESP32-PICO-D4",
-         lcsc="C2020",
+         lcsc="C193707",
          pins={
              # RF
              "2": "RF_PICO",
