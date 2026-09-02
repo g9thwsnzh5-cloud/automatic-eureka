@@ -261,15 +261,21 @@ def main():
         # pico: freerouting routes RF; add a couple of GND fence vias near the FEM
         for _fx, _fy in [(24.5, 8.5), (24.5, 12.0)]:
             via(_fx, _fy, "GND")
-        for _pr in getattr(_d, "PREROUTE", []):
-            _pts = [pad_pos(*q) if isinstance(q, tuple) and isinstance(q[0], str) else VECTOR2I_MM(*q)
-                    for q in _pr["points"]]
-            _lay = getattr(pcbnew, _pr.get("layer", "F_Cu"))
-            for _a, _b in zip(_pts, _pts[1:]):
-                _t = pcbnew.PCB_TRACK(board)
-                _t.SetStart(_a); _t.SetEnd(_b); _t.SetWidth(FromMM(_pr.get("w", 0.25)))
-                _t.SetLayer(_lay); _t.SetNet(netmap[_pr["net"]]); _t.SetLocked(True)
-                board.Add(_t)
+
+    # design pre-routes (locked)
+    for _pr in getattr(_d, "PREROUTE", []):
+        _pts = [pad_pos(*q) if isinstance(q, tuple) and isinstance(q[0], str) else VECTOR2I_MM(*q)
+                for q in _pr["points"]]
+        _lay = getattr(pcbnew, _pr.get("layer", "F_Cu"))
+        for _a, _b in zip(_pts, _pts[1:]):
+            _t = pcbnew.PCB_TRACK(board)
+            _t.SetStart(_a); _t.SetEnd(_b); _t.SetWidth(FromMM(_pr.get("w", 0.25)))
+            _t.SetLayer(_lay); _t.SetNet(netmap[_pr["net"]]); _t.SetLocked(True)
+            board.Add(_t)
+
+    for _vx, _vy, _vn in getattr(_d, "PREROUTE_VIAS", []):
+        _v = pcbnew.PCB_VIA(board); _v.SetPosition(VECTOR2I_MM(_vx, _vy)); _v.SetWidth(FromMM(0.6)); _v.SetDrill(FromMM(0.3))
+        _v.SetViaType(pcbnew.VIATYPE_THROUGH); _v.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu); _v.SetNet(netmap[_vn]); _v.SetLocked(True); board.Add(_v)
 
     # spots free of footprints (for fence / stitching vias)
     _boxes = []
@@ -278,8 +284,9 @@ def main():
         _boxes.append((_bb.GetLeft() / 1e6 - 0.45, _bb.GetTop() / 1e6 - 0.45,
                        _bb.GetRight() / 1e6 + 0.45, _bb.GetBottom() / 1e6 + 0.45))
     _rf_ids = {netmap[n].GetNetCode() for n in RF_NETS if n in netmap}
-    _rf_segs = [(t.GetStart().x / 1e6, t.GetStart().y / 1e6, t.GetEnd().x / 1e6, t.GetEnd().y / 1e6)
-                for t in board.GetTracks() if t.GetClass() == "PCB_TRACK" and t.GetNetCode() in _rf_ids]
+    _all_segs = [(t.GetStart().x / 1e6, t.GetStart().y / 1e6, t.GetEnd().x / 1e6, t.GetEnd().y / 1e6, t.GetNetCode())
+                 for t in board.GetTracks() if t.GetClass() == "PCB_TRACK"]
+    _rf_segs = [sg[:4] for sg in _all_segs if sg[4] in _rf_ids]
 
     def _dseg(px, py, x1, y1, x2, y2):
         dx, dy = x2 - x1, y2 - y1
@@ -294,6 +301,8 @@ def main():
         for l, t_, r, b in _boxes:
             if l <= x <= r and t_ <= y <= b:
                 return False
+        if any(_dseg(x, y, *sg[:4]) < 0.6 for sg in _all_segs):
+            return False
         return all(_dseg(x, y, *sg) >= rf_min for sg in _rf_segs)
 
     _stitch = getattr(_d, "STITCH", 0)
@@ -338,6 +347,8 @@ def main():
         z.SetThermalReliefGap(FromMM(0.3))
         z.SetThermalReliefSpokeWidth(FromMM(0.35))
         z.SetIsFilled(False)
+        if hasattr(pcbnew, "ISLAND_REMOVAL_MODE_ALWAYS"):
+            z.SetIslandRemovalMode(pcbnew.ISLAND_REMOVAL_MODE_ALWAYS)
         inset = 0.4
         for x, y in [(inset, inset), (BOARD_W - inset, inset), (BOARD_W - inset, BOARD_H - inset),
                      (inset, BOARD_H - inset)]:
@@ -348,7 +359,7 @@ def main():
     line([("J1", "A5"), (31.75, 42.5), (28.6, 42.5), (27.99, 41.9), ("R1", "1")], "CC1", w=0.2)
 
     # RF pads: solid connection to the pour (GND side of shunt parts and QFN paddle)
-    for ref in ("U4", "J2", "J5", "C13", "C14", "R9", "R10", "C9", "C10", "U1", "J1", "R41", "C41", "C4", "R12", "C6", "J4", "C43", "U2", "J5"):
+    for ref in ("U4", "J2", "J5", "C13", "C14", "R9", "R10", "C9", "C10", "U1", "J1", "R41", "C41", "C4", "R12", "C6", "J4", "C43", "U2", "J5", "R2", "C42"):
         if ref not in fps:
             continue
         for pd in fps[ref].Pads():
