@@ -185,8 +185,8 @@ def main():
         t.SetTextAngleDegrees(rot)
         board.Add(t)
 
-    text("ESP32 Wi-Fi FEM  rev A", 51.0, 24.0, size=1.2)
-    text("RF IN", 27.3, 12.9, size=0.8)
+    for _t, _x, _y, _sz in getattr(_d, "SILK", [("ESP32 Wi-Fi FEM  rev A", 51.0, 24.0, 1.2), ("RF IN", 27.3, 12.9, 0.8)]):
+        text(_t, _x, _y, size=_sz)
     text("ANT", 58.0, 2.5, size=0.8)
     text("USB", 32.0, 40.5, size=0.8)
     text("RST", 10.75, 40.5, size=0.8)

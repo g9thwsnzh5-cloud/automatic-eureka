@@ -82,17 +82,18 @@ def do_dsn():
     raw = os.path.join(BUILD, _PROJECT + "_raw.dsn")
     pcbnew.ExportSpecctraDSN(board, raw)
     d = open(raw).read()
-    if _HAND_RF:
-        m = _re.search(r'\(class kicad_default "" (.*?)\n      \(circuit', d, _re.S)
-        body = m.group(1)
-        for n in RF_NETS:
-            body = _re.sub(r"\b%s\b" % n, "", body)
-        d = d[:m.start(1)] + body + d[m.end(1):]
+    m = _re.search(r'\(class kicad_default "" (.*?)\n      \(circuit', d, _re.S)
+    body = m.group(1)
+    for n in RF_NETS:
+        body = _re.sub(r"\b%s\b" % n, "", body)
+    d = d[:m.start(1)] + body + d[m.end(1):]
     rfclass = ("    (class RF \"\" %s\n      (circuit\n        (use_via Via[0-3]_600:300_um)\n      )\n"
                "      (rule\n        (width 380)\n        (clearance 200.1)\n      )\n    )\n" % " ".join(RF_NETS))
-    if _HAND_RF:
-        i = d.rfind("  )\n  (wiring")
-        d = d[:i] + rfclass + d[i:]
+    i = d.rfind("  )\n  (wiring")
+    d = d[:i] + rfclass + d[i:]
+    if getattr(_d, "NO_INNER_ROUTING", False):
+        # planes: tell freerouting not to route on In1/In2
+        d = _re.sub(r"\(layer (In[12])\.Cu\n(\s+)\(type signal\)", r"(layer \1.Cu\n\2(type power)", d)
     d = "\n".join(l for l in d.split("\n") if "plane GND (polygon F.Cu" not in l and "plane GND (polygon B.Cu" not in l)
     out = os.path.join(BUILD, _DSN)
     open(out, "w").write(d)
