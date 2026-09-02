@@ -58,7 +58,7 @@ PLACE = {
     "R11": (38.0, 14.2, None), "R12": (42.5, 14.2, None), "TP1": (36.0, 17.0, 0),
     "TP2": (43.5, 17.0, 0), "R13": (46.5, 14.0, 0), "D3": (49.6, 14.0, 180),
 }
-HOLES = [(4.0, 4.0), (52.0, 4.0), (4.0, 48.0), (52.0, 48.5)]
+HOLES = [(4.0, 4.0), (52.0, 4.0), (4.0, 48.0), (52.0, 48.0)]
 
 PLACE = {**PLACE, **getattr(_d, "PLACE_EXTRA", {})}
 HAND_RF = getattr(_d, "HAND_RF", True)
@@ -84,7 +84,7 @@ def main():
     ds.m_TrackMinWidth = FromMM(0.127)
     ds.m_ViasMinSize = FromMM(0.5)
     ds.m_MinThroughDrill = FromMM(0.2)   # WROOM-32U paddle vias are 0.2 mm (JLC 4-layer ok)
-    ds.m_CopperEdgeClearance = FromMM(0.2)
+    ds.m_CopperEdgeClearance = FromMM(0.5)     # JLC: inner-layer copper >= 0.5 mm from the routed edge
     ds.m_SolderMaskMinWidth = 0
     try:
         nc = ds.m_NetSettings.m_DefaultNetClass
@@ -419,8 +419,8 @@ def main():
                         mx, my = (px + vx) / 2, (py + vy) / 2
                         if _dbg and _fp.GetReference() == _dbg:
                             print("  try", _p.GetNumber(), round(vx, 2), round(vy, 2), _why(vx, vy, _p, 0.42) or "ok", "/", _why(mx, my, _p, 0.3) or "ok")
-                        if _clear(vx, vy, _p, 0.42) and _clear(mx, my, _p, 0.3):
-                            via(vx, vy, "GND", d=0.5, drill=0.25)
+                        if _clear(vx, vy, _p, 0.47) and _clear(mx, my, _p, 0.3):
+                            via(vx, vy, "GND")            # 0.6/0.3: annular 0.15 (0.5/0.25 sits on JLC's minimum)
                             track(VECTOR2I_MM(px, py), VECTOR2I_MM(vx, vy), "GND", w=0.3)
                             _p.SetZoneConnection(pcbnew.ZONE_CONNECTION_NONE)   # the stub is the connection (no starved-thermal DRC)
                             _vias.append((vx, vy)); _all_segs.append((px, py, vx, vy, _gnd))
@@ -479,6 +479,12 @@ def main():
                      (inset, BOARD_H - inset)]:
             z.AppendCorner(VECTOR2I_MM(x, y), -1)
         board.Add(z)
+
+    # QFN paddle paste: KiCad's ThermalVias footprints print ~76 %; JLC/Qorvo want ~50 %
+    for _fp in board.GetFootprints():
+        for _p in _fp.Pads():
+            if _p.GetNumber() == "" and _p.GetLayerSet().Seq() and all(board.GetLayerName(l) in ("F.Paste", "B.Paste") for l in _p.GetLayerSet().Seq()):
+                _p.SetSize(pcbnew.VECTOR2I(int(_p.GetSize().x * 0.81), int(_p.GetSize().y * 0.81)))
 
     # RF pads: solid connection to the pour (GND side of shunt parts and QFN paddle)
     for ref in ("U4", "J2", "J5", "C13", "C14", "R9", "R10", "C9", "C10", "U1", "J1", "R41", "C41", "C4", "R12", "C6", "J4", "C43", "U2", "J5", "R2", "C42"):

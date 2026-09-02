@@ -198,7 +198,7 @@ def repair_islands(board):
             if _dseg(x, y, t.GetStart().x / 1e6, t.GetStart().y / 1e6, t.GetEnd().x / 1e6, t.GetEnd().y / 1e6) < t.GetWidth() / 2e6 + 0.3 + 0.2:
                 return False
         for v in vias:
-            if (x - v.GetPosition().x / 1e6) ** 2 + (y - v.GetPosition().y / 1e6) ** 2 < 0.9 ** 2:
+            if (x - v.GetPosition().x / 1e6) ** 2 + (y - v.GetPosition().y / 1e6) ** 2 < 1.0 ** 2:
                 return False
         for p in pads:
             bb = p.GetBoundingBox()
@@ -238,7 +238,7 @@ def repair_islands(board):
                 continue
             v = pcbnew.PCB_VIA(board)
             v.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(best[0]), pcbnew.FromMM(best[1])))
-            v.SetWidth(pcbnew.FromMM(0.5)); v.SetDrill(pcbnew.FromMM(0.25))
+            v.SetWidth(pcbnew.FromMM(0.6)); v.SetDrill(pcbnew.FromMM(0.3))
             v.SetViaType(pcbnew.VIATYPE_THROUGH); v.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu)
             v.SetNetCode(gcode); v.SetLocked(True)
             board.Add(v); vias.append(v); added += 1
